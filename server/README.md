@@ -29,7 +29,11 @@ Mã nguồn REST API cho hệ thống quản lý trường đại học.
     ```bash
     python manage.py migrate
     ```
-6.  **Chạy Server:**
+6.  **Tạo tài khoản admin:**
+    ```bash
+    python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); u = User.objects.get(username='admin'); u.set_password('admin123'); u.save()"
+    ```
+7.  **Chạy Server:**
     ```bash
     python manage.py runserver
     ```
