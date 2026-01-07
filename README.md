@@ -23,8 +23,8 @@ Hệ thống quản lý trường đại học cơ bản, bao gồm quản lý S
 
 ```
 Student-TeacherManagement/
-├── backend/            # Django Source Code (Sắp init)
-├── frontend/           # Next.js Source Code (Sắp init)
+├── server/             # Django Source Code
+├── client/             # Next.js Source Code (Sắp init)
 ├── docs/               # Tài liệu dự án (Roadmap, Feature specs)
 ├── docker-compose.yml  # Config chạy DB & MinIO
 ├── .env                # Biến môi trường
@@ -53,10 +53,10 @@ docker-compose up -d
 - **MinIO Console** (Quản lý file) tại `http://localhost:9001` (User/Pass trong `.env`).
 - **MinIO API** tại `http://localhost:9000`.
 
-### 3. Setup Backend (Updating...)
+### 3. Setup Server (Updating...)
 *(Đang cập nhật trong Cycle 1)*
 
-### 4. Setup Frontend (Updating...)
+### 4. Setup Client (Updating...)
 *(Đang cập nhật trong Cycle 1)*
 
 ## 📅 Roadmap
