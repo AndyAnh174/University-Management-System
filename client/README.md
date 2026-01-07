@@ -18,14 +18,25 @@ Mã nguồn Frontend cho hệ thống quản lý sinh viên - giảng viên.
 ```
 client/
 ├── app/                        # Next.js App Router
-│   ├── (auth)/                # Route group cho authentication
+│   ├── (auth)/                # Route group - authentication
 │   │   └── login/
-│   ├── dashboard/             # Dashboard pages
+│   ├── (dashboard)/           # Route group - main app với layout
+│   │   ├── layout.tsx        # Dashboard layout (Sidebar + Header)
+│   │   ├── dashboard/        # /dashboard
+│   │   ├── students/         # /students
+│   │   ├── teachers/         # /teachers
+│   │   ├── courses/          # /courses
+│   │   ├── schedules/        # /schedules
+│   │   └── settings/         # /settings
 │   ├── globals.css            # Global styles
 │   ├── layout.tsx             # Root layout
-│   └── page.tsx               # Home page
+│   └── page.tsx               # Landing page
 │
 ├── components/                 # Shared UI Components
+│   ├── layout/                # Layout components
+│   │   ├── Sidebar.tsx       # Sidebar với navigation
+│   │   ├── Header.tsx        # Top header với search, user menu
+│   │   └── DashboardLayout.tsx
 │   ├── ui/                    # Base UI (Shadcn components)
 │   └── magicui/               # MagicUI animated components
 │
@@ -39,12 +50,6 @@ client/
 │   │   └── index.ts          # Barrel export
 │   │
 │   ├── students/              # (Sẽ thêm) Student management
-│   │   ├── api/
-│   │   ├── hooks/
-│   │   ├── types/
-│   │   ├── components/
-│   │   └── utils/
-│   │
 │   ├── teachers/              # (Sẽ thêm) Teacher management
 │   ├── courses/               # (Sẽ thêm) Course management
 │   └── index.ts               # Export all features
