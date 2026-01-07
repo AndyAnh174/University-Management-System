@@ -35,7 +35,15 @@ INSTALLED_APPS = [
     "corsheaders",
     "minio_storage",
     "drf_yasg",
+    
+    # Local Apps
+    "users",
 ]
+
+# ... (Middleware content skipped in replacement for brevity, locating strictly by content match)
+
+# Custom User Model
+AUTH_USER_MODEL = 'users.User'
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
