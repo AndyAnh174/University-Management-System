@@ -166,3 +166,19 @@ SIMPLE_JWT = {
     'TOKEN_REFRESH_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenRefreshSerializer',
 }
 
+# Swagger Settings
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'Enter your JWT token. Format: "Bearer <token>" (include "Bearer " prefix)'
+        }
+    },
+    'SECURITY_REQUIREMENTS': [{'Bearer': []}],
+    'USE_SESSION_AUTH': False,
+    'JSON_EDITOR': True,
+    'PERSIST_AUTH': True,
+}
+
