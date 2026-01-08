@@ -12,8 +12,6 @@ import {
   Bell,
   UserCircle,
   FolderOpen,
-  Building2,
-  School,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,9 +26,6 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Home', href: '/dashboard', icon: <LayoutDashboard size={22} /> },
-  { label: 'Quản lý Khoa', href: '/faculties', icon: <Building2 size={22} />, roles: ['admin'] },
-  { label: 'Quản lý Ngành', href: '/majors', icon: <BookOpen size={22} />, roles: ['admin'] },
-  { label: 'Quản lý Lớp', href: '/classes', icon: <School size={22} />, roles: ['admin'] },
   { label: 'Sinh viên', href: '/students', icon: <GraduationCap size={22} />, roles: ['admin', 'teacher'] },
   { label: 'Giảng viên', href: '/teachers', icon: <Users size={22} />, roles: ['admin'] },
   { label: 'Môn học', href: '/courses', icon: <BookOpen size={22} /> },

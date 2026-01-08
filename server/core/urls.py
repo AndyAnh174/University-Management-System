@@ -39,7 +39,6 @@ urlpatterns = [
     
     # API v1
     path('api/v1/', include('users.urls')),
-    path('api/v1/', include('academics.urls')),
     
     # Swagger URLs
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
