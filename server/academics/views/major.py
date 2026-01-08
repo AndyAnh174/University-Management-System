@@ -7,6 +7,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 from users.permissions import IsAdmin
+from core.mixins import AuditLogMixin
 from academics.models import Major
 from academics.serializers import (
     MajorSerializer,
@@ -15,7 +16,7 @@ from academics.serializers import (
 )
 
 
-class MajorViewSet(viewsets.ModelViewSet):
+class MajorViewSet(AuditLogMixin, viewsets.ModelViewSet):
     """
     CRUD API for Major management - Admin only
     
