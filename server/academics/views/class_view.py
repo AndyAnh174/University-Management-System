@@ -7,6 +7,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 from users.permissions import IsAdmin
+from core.mixins import AuditLogMixin
 from academics.models import Class
 from academics.serializers import (
     ClassSerializer,
@@ -15,7 +16,7 @@ from academics.serializers import (
 )
 
 
-class ClassViewSet(viewsets.ModelViewSet):
+class ClassViewSet(AuditLogMixin, viewsets.ModelViewSet):
     """
     CRUD API for Class management - Admin only
     
