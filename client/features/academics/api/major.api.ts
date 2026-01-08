@@ -70,3 +70,13 @@ export async function getMajorsDropdown(facultyId?: number): Promise<MajorMinima
   const response = await apiClient.get<MajorMinimal[]>(`${BASE_URL}/dropdown/`, { params });
   return response.data;
 }
+
+// Export object for useResource
+export const majorApi = {
+    list: getMajors,
+    create: createMajor,
+    update: updateMajor,
+    delete: deleteMajor,
+    getById: getMajorById,
+    getDropdown: getMajorsDropdown,
+};

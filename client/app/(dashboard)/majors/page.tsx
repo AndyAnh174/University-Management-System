@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, RefreshCw, Filter } from 'lucide-react';
 import { AdminOnly } from '@/components/auth';
 import { Button } from '@/components/ui/button';
@@ -12,57 +12,72 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { toast } from 'sonner';
 import { 
-  useMajors, 
   MajorTable, 
   MajorModal, 
-  DeleteConfirmModal,
-  getFacultiesDropdown,
   type Major,
   type MajorCreateInput,
+  type MajorUpdateInput,
   type FacultyMinimal,
 } from '@/features/academics';
+import { majorApi } from '@/features/academics/api/major.api';
+import { getFacultiesDropdown } from '@/features/academics/api/faculty.api';
+import { useResource } from '@/hooks/useResource';
+import { DeleteConfirmModal } from '@/components/shared/DeleteConfirmModal';
 
 export default function MajorsPage() {
-  const { data, count, isLoading, error, fetchMajors, createMajor, updateMajor, deleteMajor, refetch } = useMajors();
-  
   const [search, setSearch] = useState('');
   const [selectedFacultyFilter, setSelectedFacultyFilter] = useState<string>('all');
   const [faculties, setFaculties] = useState<FacultyMinimal[]>([]);
   
+  // Use generic resource hook
+  const {
+    data,
+    count,
+    isLoading,
+    isSubmitting,
+    error,
+    createItem,
+    updateItem,
+    deleteItem,
+    refetch,
+    pagination,
+    onPaginationChange,
+    setFilters,
+  } = useResource<Major, MajorCreateInput, MajorUpdateInput, { search?: string; faculty?: number }>({
+    api: majorApi,
+    name: 'Ngành',
+    defaultFilters: { search: '', faculty: undefined },
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedMajor, setSelectedMajor] = useState<Major | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
 
   // Load faculties for filter on mount
   useEffect(() => {
     getFacultiesDropdown().then(setFaculties).catch(console.error);
   }, []);
 
-  // Fetch majors (debounced search handled by effect dependency)
-  useEffect(() => {
-    const params: any = { page: currentPage };
-    if (search) params.search = search;
-    if (selectedFacultyFilter && selectedFacultyFilter !== 'all') {
-      params.faculty = Number(selectedFacultyFilter);
-    }
-    
-    fetchMajors(params);
-  }, [fetchMajors, currentPage, search, selectedFacultyFilter]);
-
-  // Debounced search
-  const handleSearchChange = useCallback((value: string) => {
+  // Handle Search
+  const handleSearchChange = (value: string) => {
     setSearch(value);
-    setCurrentPage(1);
-  }, []);
+    // Debounce handled in effect below
+  };
 
-  // Filter change
-  const handleFilterChange = useCallback((value: string) => {
+  // Effect for debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        setFilters({ search: search || undefined });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search, setFilters]);
+
+  // Handle Filter Change
+  const handleFilterChange = (value: string) => {
     setSelectedFacultyFilter(value);
-    setCurrentPage(1);
-  }, []);
+    setFilters({ faculty: value === 'all' ? undefined : Number(value) });
+  };
 
   // CRUD Actions
   const handleCreate = () => {
@@ -80,28 +95,20 @@ export default function MajorsPage() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleSubmit = async (formData: MajorCreateInput) => {
-    try {
-      if (selectedMajor) {
-        await updateMajor(selectedMajor.id, formData);
-        toast.success('Cập nhật ngành thành công!');
-      } else {
-        await createMajor(formData);
-        toast.success('Thêm ngành mới thành công!');
-      }
-    } catch {
-      toast.error('Có lỗi xảy ra. Vui lòng thử lại.');
-      throw new Error('Submit failed');
+  const handleSubmit = async (formData: any) => { // Type handled by Zod
+    if (selectedMajor) {
+      await updateItem(selectedMajor.id, formData);
+    } else {
+      await createItem(formData);
     }
   };
 
   const handleDelete = async () => {
     if (!selectedMajor) return;
-    await deleteMajor(selectedMajor.id);
-    toast.success('Xóa ngành thành công!');
+    await deleteItem(selectedMajor.id);
   };
 
-  const totalPages = Math.ceil(count / 20);
+  const pageCount = Math.ceil(count / pagination.pageSize);
 
   return (
     <AdminOnly
@@ -117,7 +124,7 @@ export default function MajorsPage() {
           <div>
             <h1 className="text-xl font-semibold text-stone-800">Quản lý Ngành</h1>
             <p className="text-sm text-stone-500">
-              Danh sách tất cả các ngành học trực thuộc các khoa ({count} ngành)
+              Danh sách tất cả các ngành học trực thuộc các khoa
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -181,32 +188,10 @@ export default function MajorsPage() {
           isLoading={isLoading}
           onEdit={handleEdit}
           onDelete={handleDeleteClick}
+          pageCount={pageCount}
+          pagination={pagination}
+          onPaginationChange={onPaginationChange}
         />
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1 || isLoading}
-            >
-              Trước
-            </Button>
-            <span className="text-sm text-stone-600">
-              Trang {currentPage} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || isLoading}
-            >
-              Sau
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Modals */}
@@ -216,6 +201,7 @@ export default function MajorsPage() {
         major={selectedMajor}
         onSubmit={handleSubmit}
         preselectedFacultyId={selectedFacultyFilter !== 'all' ? Number(selectedFacultyFilter) : undefined}
+        isSubmitting={isSubmitting}
       />
 
       <DeleteConfirmModal

@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useForm, FormProvider } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import {
   Dialog,
   DialogContent,
@@ -10,41 +13,55 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import type { Major, MajorCreateInput, FacultyMinimal } from '../types';
+import { FormInput, FormTextarea, FormCheckbox, FormSelect } from '@/components/shared/FormControls';
+import type { Major, FacultyMinimal } from '../types';
 import { getFacultiesDropdown } from '../api/faculty.api';
+
+// Zod Schema
+const majorSchema = z.object({
+  code: z.string().min(2, 'Mã ngành phải có ít nhất 2 ký tự').nonempty('Mã ngành không được để trống'),
+  name: z.string().min(3, 'Tên ngành phải có ít nhất 3 ký tự').nonempty('Tên ngành không được để trống'),
+  description: z.string().optional(),
+  faculty_id: z.coerce.number().min(1, 'Vui lòng chọn khoa'),
+  is_active: z.boolean().default(true),
+});
+
+type MajorFormValues = z.infer<typeof majorSchema>;
 
 interface MajorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   major?: Major | null;
-  onSubmit: (data: MajorCreateInput) => Promise<void>;
-  preselectedFacultyId?: number; // Optional: prepopulate if we are in a Faculty context
+  onSubmit: (data: MajorFormValues) => Promise<void>;
+  preselectedFacultyId?: number;
+  isSubmitting?: boolean;
 }
 
-export function MajorModal({ open, onOpenChange, major, onSubmit, preselectedFacultyId }: MajorModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export function MajorModal({ 
+  open, 
+  onOpenChange, 
+  major, 
+  onSubmit, 
+  preselectedFacultyId,
+  isSubmitting 
+}: MajorModalProps) {
+  
   const [isLoadingFaculties, setIsLoadingFaculties] = useState(false);
   const [faculties, setFaculties] = useState<FacultyMinimal[]>([]);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  
-  const [formData, setFormData] = useState<MajorCreateInput>({
-    code: '',
-    name: '',
-    description: '',
-    faculty_id: 0,
-    is_active: true,
+
+  const methods = useForm<MajorFormValues>({
+    resolver: zodResolver(majorSchema) as any,
+    defaultValues: {
+      code: '',
+      name: '',
+      description: '',
+      faculty_id: 0,
+      is_active: true,
+    },
   });
+
+  const { reset, handleSubmit, setError } = methods;
 
   // Fetch faculties when modal opens
   useEffect(() => {
@@ -61,7 +78,7 @@ export function MajorModal({ open, onOpenChange, major, onSubmit, preselectedFac
   useEffect(() => {
     if (open) {
       if (major) {
-        setFormData({
+        reset({
           code: major.code,
           name: major.name,
           description: major.description || '',
@@ -69,7 +86,7 @@ export function MajorModal({ open, onOpenChange, major, onSubmit, preselectedFac
           is_active: major.is_active,
         });
       } else {
-        setFormData({
+        reset({
           code: '',
           name: '',
           description: '',
@@ -77,195 +94,106 @@ export function MajorModal({ open, onOpenChange, major, onSubmit, preselectedFac
           is_active: true,
         });
       }
-      setErrors({});
     }
-  }, [open, major, preselectedFacultyId]);
+  }, [open, major, preselectedFacultyId, reset]);
 
-  const handleChange = (field: keyof MajorCreateInput, value: string | boolean | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.code.trim()) {
-      newErrors.code = 'Mã ngành không được để trống';
-    } else if (formData.code.length < 2) {
-      newErrors.code = 'Mã ngành phải có ít nhất 2 ký tự';
-    }
-    
-    if (!formData.name.trim()) {
-      newErrors.name = 'Tên ngành không được để trống';
-    } else if (formData.name.length < 3) {
-      newErrors.name = 'Tên ngành phải có ít nhất 3 ký tự';
-    }
-    
-    if (!formData.faculty_id) {
-      newErrors.faculty_id = 'Vui lòng chọn khoa';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validate()) return;
-    
-    setIsSubmitting(true);
+  const onFormSubmit = async (data: MajorFormValues) => {
     try {
-      await onSubmit(formData);
+      await onSubmit(data);
       onOpenChange(false);
-    } catch (error) {
-       // Handle API validation errors
-       if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { 
-          response?: { data?: { error?: { details?: Record<string, string[]> } } } 
-        };
-        const details = axiosError.response?.data?.error?.details;
-        if (details) {
-          const fieldErrors: Record<string, string> = {};
-          Object.entries(details).forEach(([key, messages]) => {
-            if (Array.isArray(messages) && messages.length > 0) {
-              fieldErrors[key] = messages[0];
-            }
-          });
-          setErrors(fieldErrors);
+    } catch (error: any) {
+        if (error?.response?.data?.error?.details) {
+            const details = error.response.data.error.details;
+            Object.keys(details).forEach((key) => {
+              // Map keys to form fields
+              if (['code', 'name', 'description', 'faculty_id'].includes(key)) {
+                setError(key as any, { 
+                    type: 'manual', 
+                    message: details[key][0] 
+                });
+              }
+            });
         }
-      }
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const isEditing = !!major;
+  
+  const facultyOptions = faculties.map(f => ({
+    value: f.id,
+    label: f.name
+  }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>
-              {isEditing ? 'Chỉnh sửa Ngành' : 'Thêm Ngành mới'}
-            </DialogTitle>
-            <DialogDescription>
-              {isEditing 
-                ? 'Cập nhật thông tin ngành học.'
-                : 'Thêm một ngành học mới vào hệ thống.'}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {/* Faculty Select */}
-            <div className="space-y-2">
-              <Label htmlFor="faculty">
-                Khoa trực thuộc <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={formData.faculty_id ? String(formData.faculty_id) : undefined}
-                onValueChange={(value) => handleChange('faculty_id', Number(value))}
+        <FormProvider {...methods}>
+          <form onSubmit={handleSubmit(onFormSubmit)}>
+            <DialogHeader>
+              <DialogTitle>
+                {isEditing ? 'Chỉnh sửa Ngành' : 'Thêm Ngành mới'}
+              </DialogTitle>
+              <DialogDescription>
+                {isEditing 
+                  ? 'Cập nhật thông tin ngành học.'
+                  : 'Thêm một ngành học mới vào hệ thống.'}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <FormSelect
+                name="faculty_id"
+                label="Khoa trực thuộc"
+                placeholder={isLoadingFaculties ? "Đang tải..." : "Chọn khoa"}
+                options={facultyOptions}
                 disabled={isSubmitting || isLoadingFaculties}
-              >
-                <SelectTrigger className={errors.faculty_id ? 'border-red-500' : ''}>
-                  <SelectValue placeholder={isLoadingFaculties ? "Đang tải danh sách khoa..." : "Chọn khoa"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {faculties.map((faculty) => (
-                    <SelectItem key={faculty.id} value={String(faculty.id)}>
-                      {faculty.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.faculty_id && (
-                <p className="text-sm text-red-500">{errors.faculty_id}</p>
-              )}
-            </div>
-
-            {/* Code */}
-            <div className="space-y-2">
-              <Label htmlFor="code">
-                Mã ngành <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="code"
-                value={formData.code}
-                onChange={(e) => handleChange('code', e.target.value.toUpperCase())}
-                placeholder="VD: KTPM, HTTT..."
-                className={errors.code ? 'border-red-500' : ''}
+              />
+              
+              <FormInput 
+                name="code" 
+                label="Mã ngành" 
+                placeholder="VD: KHMT" 
+                className="uppercase"
                 disabled={isSubmitting}
               />
-              {errors.code && (
-                <p className="text-sm text-red-500">{errors.code}</p>
-              )}
-            </div>
-            
-            {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="name">
-                Tên ngành <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => handleChange('name', e.target.value)}
-                placeholder="VD: Kỹ thuật phần mềm"
-                className={errors.name ? 'border-red-500' : ''}
+              
+              <FormInput 
+                name="name" 
+                label="Tên ngành" 
+                placeholder="VD: Khoa học máy tính"
                 disabled={isSubmitting}
               />
-              {errors.name && (
-                <p className="text-sm text-red-500">{errors.name}</p>
-              )}
-            </div>
-            
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Mô tả</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => handleChange('description', e.target.value)}
+              
+              <FormTextarea 
+                name="description" 
+                label="Mô tả" 
                 placeholder="Mô tả ngắn về ngành..."
-                rows={3}
+                disabled={isSubmitting}
+              />
+              
+              <FormCheckbox 
+                name="is_active" 
+                label="Đang hoạt động"
                 disabled={isSubmitting}
               />
             </div>
             
-            {/* Is Active */}
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="is_active"
-                checked={formData.is_active}
-                onChange={(e) => handleChange('is_active', e.target.checked)}
-                className="h-4 w-4 rounded border-stone-300"
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
-              />
-              <Label htmlFor="is_active" className="font-normal">
-                Đang hoạt động
-              </Label>
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Hủy
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditing ? 'Cập nhật' : 'Thêm mới'}
-            </Button>
-          </DialogFooter>
-        </form>
+              >
+                Hủy
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? 'Cập nhật' : 'Thêm mới'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </FormProvider>
       </DialogContent>
     </Dialog>
   );

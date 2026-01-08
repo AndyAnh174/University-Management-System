@@ -77,3 +77,14 @@ export async function getAcademicYears(): Promise<number[]> {
   const response = await apiClient.get<number[]>(`${BASE_URL}/academic_years/`);
   return response.data;
 }
+
+// Export object for useResource
+export const classApi = {
+    list: getClasses,
+    create: createClass,
+    update: updateClass,
+    delete: deleteClass,
+    getById: getClassById,
+    getDropdown: getClassesDropdown,
+    getAcademicYears: getAcademicYears,
+};

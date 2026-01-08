@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, RefreshCw, Filter } from 'lucide-react';
 import { AdminOnly } from '@/components/auth';
 import { Button } from '@/components/ui/button';
@@ -12,26 +12,22 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { toast } from 'sonner';
 import { 
-  useClasses, 
   ClassTable, 
   ClassModal, 
-  DeleteConfirmModal,
-  getFacultiesDropdown,
-  getMajorsDropdown,
-  getAcademicYears,
   type Class,
   type ClassCreateInput,
+  type ClassUpdateInput,
   type FacultyMinimal,
   type MajorMinimal,
 } from '@/features/academics';
-import * as classApi from '@/features/academics/api/class.api';
+import { classApi } from '@/features/academics/api/class.api';
+import { getFacultiesDropdown } from '@/features/academics/api/faculty.api';
+import { getMajorsDropdown } from '@/features/academics/api/major.api';
+import { useResource } from '@/hooks/useResource';
+import { DeleteConfirmModal } from '@/components/shared/DeleteConfirmModal';
 
 export default function ClassesPage() {
-  const { data, count, isLoading, error, fetchClasses, createClass, updateClass, deleteClass, refetch } = useClasses();
-  
-  // States for filters
   const [search, setSearch] = useState('');
   const [faculties, setFaculties] = useState<FacultyMinimal[]>([]);
   const [majors, setMajors] = useState<MajorMinimal[]>([]);
@@ -40,11 +36,35 @@ export default function ClassesPage() {
   const [selectedFaculty, setSelectedFaculty] = useState<string>('all');
   const [selectedMajor, setSelectedMajor] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
+  
+  // Use generic resource hook
+  const {
+    data,
+    count,
+    isLoading,
+    isSubmitting,
+    error,
+    createItem,
+    updateItem,
+    deleteItem,
+    refetch,
+    pagination,
+    onPaginationChange,
+    setFilters,
+  } = useResource<Class, ClassCreateInput, ClassUpdateInput, { 
+      search?: string; 
+      major__faculty?: number;
+      major?: number;
+      academic_year?: number 
+  }>({
+    api: classApi,
+    name: 'Lớp học',
+    defaultFilters: { search: '', major__faculty: undefined, major: undefined, academic_year: undefined },
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
 
   // Initial Data Load
   useEffect(() => {
@@ -58,36 +78,42 @@ export default function ClassesPage() {
       getMajorsDropdown(Number(selectedFaculty)).then(setMajors).catch(console.error);
     } else {
       setMajors([]);
-      setSelectedMajor('all');
+      if (selectedMajor !== 'all') {
+          handleMajorChange('all');
+      }
     }
   }, [selectedFaculty]);
 
-  // Fetch classes with filters
-  useEffect(() => {
-    const params: any = { page: currentPage };
-    if (search) params.search = search;
-    
-    if (selectedFaculty && selectedFaculty !== 'all') {
-      params.major__faculty = Number(selectedFaculty);
-    }
-    
-    if (selectedMajor && selectedMajor !== 'all') {
-      params.major = Number(selectedMajor);
-    }
-
-    if (selectedYear && selectedYear !== 'all') {
-      params.academic_year = Number(selectedYear);
-    }
-    
-    fetchClasses(params);
-  }, [fetchClasses, currentPage, search, selectedFaculty, selectedMajor, selectedYear]);
-
-  // Handlers
-  const handleSearchChange = useCallback((value: string) => {
+  // Handle Search
+  const handleSearchChange = (value: string) => {
     setSearch(value);
-    setCurrentPage(1);
-  }, []);
+  };
 
+  // Effect for debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        setFilters({ search: search || undefined });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search, setFilters]);
+
+  // Filter Handlers
+  const handleFacultyChange = (value: string) => {
+    setSelectedFaculty(value);
+    setFilters({ major__faculty: value === 'all' ? undefined : Number(value) });
+  };
+  
+  const handleMajorChange = (value: string) => {
+      setSelectedMajor(value);
+      setFilters({ major: value === 'all' ? undefined : Number(value) });
+  };
+
+  const handleYearChange = (value: string) => {
+      setSelectedYear(value);
+      setFilters({ academic_year: value === 'all' ? undefined : Number(value) });
+  };
+
+  // CRUD Actions
   const handleCreate = () => {
     setSelectedClass(null);
     setIsModalOpen(true);
@@ -103,28 +129,20 @@ export default function ClassesPage() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleSubmit = async (formData: ClassCreateInput) => {
-    try {
-      if (selectedClass) {
-        await updateClass(selectedClass.id, formData);
-        toast.success('Cập nhật lớp thành công!');
-      } else {
-        await createClass(formData);
-        toast.success('Thêm lớp mới thành công!');
-      }
-    } catch {
-      toast.error('Có lỗi xảy ra. Vui lòng thử lại.');
-      throw new Error('Submit failed');
+  const handleSubmit = async (formData: any) => {
+    if (selectedClass) {
+      await updateItem(selectedClass.id, formData);
+    } else {
+      await createItem(formData);
     }
   };
 
   const handleDelete = async () => {
     if (!selectedClass) return;
-    await deleteClass(selectedClass.id);
-    toast.success('Xóa lớp thành công!');
+    await deleteItem(selectedClass.id);
   };
 
-  const totalPages = Math.ceil(count / 20);
+  const pageCount = Math.ceil(count / pagination.pageSize);
 
   return (
     <AdminOnly
@@ -140,7 +158,7 @@ export default function ClassesPage() {
           <div>
             <h1 className="text-xl font-semibold text-stone-800">Quản lý Lớp học</h1>
             <p className="text-sm text-stone-500">
-              Danh sách các lớp sinh hoạt ({count} lớp)
+              Danh sách các lớp sinh hoạt
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -170,7 +188,7 @@ export default function ClassesPage() {
           </div>
           
           {/* Faculty Filter */}
-          <Select value={selectedFaculty} onValueChange={(v) => { setSelectedFaculty(v); setCurrentPage(1); }}>
+          <Select value={selectedFaculty} onValueChange={handleFacultyChange}>
             <SelectTrigger className="bg-white">
               <Filter className="h-4 w-4 mr-2 text-stone-400" />
               <SelectValue placeholder="Tất cả khoa" />
@@ -186,7 +204,7 @@ export default function ClassesPage() {
           {/* Major Filter */}
           <Select 
             value={selectedMajor} 
-            onValueChange={(v) => { setSelectedMajor(v); setCurrentPage(1); }}
+            onValueChange={handleMajorChange}
             disabled={selectedFaculty === 'all' || majors.length === 0}
           >
             <SelectTrigger className="bg-white">
@@ -201,7 +219,7 @@ export default function ClassesPage() {
           </Select>
 
            {/* Year Filter */}
-           <Select value={selectedYear} onValueChange={(v) => { setSelectedYear(v); setCurrentPage(1); }}>
+           <Select value={selectedYear} onValueChange={handleYearChange}>
             <SelectTrigger className="bg-white">
                <SelectValue placeholder="Tất cả khóa" />
             </SelectTrigger>
@@ -227,32 +245,10 @@ export default function ClassesPage() {
           isLoading={isLoading}
           onEdit={handleEdit}
           onDelete={handleDeleteClick}
+          pageCount={pageCount}
+          pagination={pagination}
+          onPaginationChange={onPaginationChange}
         />
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1 || isLoading}
-            >
-              Trước
-            </Button>
-            <span className="text-sm text-stone-600">
-              Trang {currentPage} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || isLoading}
-            >
-              Sau
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Modals */}
@@ -261,6 +257,7 @@ export default function ClassesPage() {
         onOpenChange={setIsModalOpen}
         classObj={selectedClass}
         onSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
       />
 
       <DeleteConfirmModal

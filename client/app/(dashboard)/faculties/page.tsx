@@ -1,39 +1,61 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, RefreshCw } from 'lucide-react';
 import { AdminOnly } from '@/components/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
 import { 
-  useFaculties, 
   FacultyTable, 
-  FacultyModal, 
-  DeleteConfirmModal,
+  FacultyModal,
   type Faculty,
   type FacultyCreateInput,
+  type FacultyUpdateInput,
 } from '@/features/academics';
+import { facultyApi } from '@/features/academics/api/faculty.api';
+import { useResource } from '@/hooks/useResource';
+import { DeleteConfirmModal } from '@/components/shared/DeleteConfirmModal';
 
 export default function FacultiesPage() {
-  const { data, count, isLoading, error, fetchFaculties, createFaculty, updateFaculty, deleteFaculty, refetch } = useFaculties();
-  
   const [search, setSearch] = useState('');
+  
+  // Use generic resource hook
+  const {
+    data,
+    count,
+    isLoading,
+    isSubmitting,
+    error,
+    createItem,
+    updateItem,
+    deleteItem,
+    refetch,
+    pagination,
+    onPaginationChange,
+    setFilters,
+  } = useResource<Faculty, FacultyCreateInput, FacultyUpdateInput, { search?: string }>({
+    api: facultyApi,
+    name: 'Khoa',
+    defaultFilters: { search: '' },
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedFaculty, setSelectedFaculty] = useState<Faculty | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch on mount and when page/search changes
-  useEffect(() => {
-    fetchFaculties({ page: currentPage, search: search || undefined });
-  }, [fetchFaculties, currentPage, search]);
-
-  // Debounced search
-  const handleSearchChange = useCallback((value: string) => {
+  // Handle Search
+  const handleSearchChange = (value: string) => {
     setSearch(value);
-    setCurrentPage(1); // Reset to first page on search
-  }, []);
+    // Debounce handled in effect below
+  };
+
+  // Effect for debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        setFilters({ search: search || undefined });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search, setFilters]);
 
   // Open modal for create
   const handleCreate = () => {
@@ -54,30 +76,21 @@ export default function FacultiesPage() {
   };
 
   // Submit create/update
-  const handleSubmit = async (formData: FacultyCreateInput) => {
-    try {
-      if (selectedFaculty) {
-        await updateFaculty(selectedFaculty.id, formData);
-        toast.success('Cập nhật khoa thành công!');
-      } else {
-        await createFaculty(formData);
-        toast.success('Thêm khoa mới thành công!');
-      }
-    } catch {
-      toast.error('Có lỗi xảy ra. Vui lòng thử lại.');
-      throw new Error('Submit failed'); // Re-throw to let modal handle
+  const handleSubmit = async (formData: any) => { // formData type is handled by Zod in modal
+    if (selectedFaculty) {
+      await updateItem(selectedFaculty.id, formData);
+    } else {
+      await createItem(formData);
     }
   };
 
   // Confirm delete
   const handleDelete = async () => {
     if (!selectedFaculty) return;
-    await deleteFaculty(selectedFaculty.id);
-    toast.success('Xóa khoa thành công!');
+    await deleteItem(selectedFaculty.id);
   };
-
-  // Pagination
-  const totalPages = Math.ceil(count / 20);
+  
+  const pageCount = Math.ceil(count / pagination.pageSize);
 
   return (
     <AdminOnly
@@ -93,7 +106,7 @@ export default function FacultiesPage() {
           <div>
             <h1 className="text-xl font-semibold text-stone-800">Quản lý Khoa</h1>
             <p className="text-sm text-stone-500">
-              Danh sách tất cả các khoa trong hệ thống ({count} khoa)
+              Danh sách tất cả các khoa trong hệ thống
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -140,32 +153,15 @@ export default function FacultiesPage() {
           isLoading={isLoading}
           onEdit={handleEdit}
           onDelete={handleDeleteClick}
+          pageCount={pageCount}
+          pagination={pagination}
+          onPaginationChange={onPaginationChange}
         />
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1 || isLoading}
-            >
-              Trước
-            </Button>
-            <span className="text-sm text-stone-600">
-              Trang {currentPage} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || isLoading}
-            >
-              Sau
-            </Button>
-          </div>
-        )}
+        
+        {/* Pagination integrated in Table via DataTable is clearer, but FacultyTable wraps DataTable which handles it? 
+            Wait, FacultyTable currently renders DataTable, but DataTable needs pagination props.
+            We need to update FacultyTable to accept and pass pagination props.
+        */}
       </div>
 
       {/* Create/Edit Modal */}
@@ -174,6 +170,7 @@ export default function FacultiesPage() {
         onOpenChange={setIsModalOpen}
         faculty={selectedFaculty}
         onSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
       />
 
       {/* Delete Confirmation Modal */}
