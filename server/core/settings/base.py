@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "minio_storage",
     "drf_yasg",
+    "django_filters",
     
     # Local Apps
     "users",
