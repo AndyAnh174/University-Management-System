@@ -1,7 +1,8 @@
 'use client';
 
-import { Bell, Search, ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { Bell, Search, ChevronDown, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { useAuthContext } from '@/providers/AuthProvider';
 
 interface HeaderProps {
   user?: {
@@ -16,6 +17,24 @@ interface HeaderProps {
 
 export function Header({ user, title, description }: HeaderProps) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { logout, isLoading } = useAuthContext();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = async () => {
+    setShowDropdown(false);
+    await logout();
+  };
 
   return (
     <header className="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-6">
@@ -43,8 +62,8 @@ export function Header({ user, title, description }: HeaderProps) {
           <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full" />
         </button>
 
-        {/* User */}
-        <div className="relative">
+        {/* User Dropdown */}
+        <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowDropdown(!showDropdown)}
             className="flex items-center gap-2 p-1.5 hover:bg-stone-50 rounded-lg transition-colors"
@@ -61,7 +80,7 @@ export function Header({ user, title, description }: HeaderProps) {
                 <p className="text-sm font-medium text-stone-700">
                   {user ? `${user.firstName} ${user.lastName}` : 'Guest'}
                 </p>
-                <p className="text-xs text-stone-500">{user?.role}</p>
+                <p className="text-xs text-stone-500 capitalize">{user?.role?.toLowerCase()}</p>
               </div>
               <a href="/profile" className="block px-4 py-2 text-sm text-stone-600 hover:bg-stone-50">
                 Hồ sơ cá nhân
@@ -70,8 +89,13 @@ export function Header({ user, title, description }: HeaderProps) {
                 Cài đặt
               </a>
               <hr className="my-1 border-stone-100" />
-              <button className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50">
-                Đăng xuất
+              <button 
+                onClick={handleLogout}
+                disabled={isLoading}
+                className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2 disabled:opacity-50"
+              >
+                {isLoading && <Loader2 size={14} className="animate-spin" />}
+                {isLoading ? 'Đang đăng xuất...' : 'Đăng xuất'}
               </button>
             </div>
           )}
