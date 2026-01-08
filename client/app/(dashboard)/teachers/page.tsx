@@ -1,7 +1,17 @@
+'use client';
+
 import { Plus, Search, Mail, Phone } from 'lucide-react';
+import { AdminOnly } from '@/components/auth';
 
 export default function TeachersPage() {
   return (
+    <AdminOnly
+      fallback={
+        <div className="text-center py-12">
+          <p className="text-stone-500">Bạn không có quyền truy cập trang này.</p>
+        </div>
+      }
+    >
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
@@ -60,5 +70,7 @@ export default function TeachersPage() {
         ))}
       </div>
     </div>
+    </AdminOnly>
   );
 }
+

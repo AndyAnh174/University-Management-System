@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../hooks';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 interface LoginFormProps {
@@ -11,8 +10,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess, onForgotPassword }: LoginFormProps) {
-  const router = useRouter();
-  const { login, isLoading, error } = useAuth();
+  const { login, isLoading, error } = useAuthContext();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +29,7 @@ export function LoginForm({ onSuccess, onForgotPassword }: LoginFormProps) {
       await login({ username, password });
       onSuccess?.();
     } catch {
-      // Error is handled in useAuth hook
+      // Error is handled in AuthProvider
     }
   };
 

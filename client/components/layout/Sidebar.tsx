@@ -13,8 +13,10 @@ import {
   Bell,
   UserCircle,
   FolderOpen,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuthContext } from '@/providers/AuthProvider';
 
 interface NavItem {
   label: string;
@@ -89,12 +91,32 @@ export function Sidebar({ userRole = 'admin' }: SidebarProps) {
       </nav>
 
       {/* Logout */}
-      <div className="p-4 border-t border-stone-100">
-        <button className="flex items-center gap-4 w-full px-4 py-3 rounded-xl text-stone-500 hover:bg-stone-50 hover:text-stone-700 text-base transition-colors">
-          <LogOut size={22} />
-          <span>Đăng xuất</span>
-        </button>
-      </div>
+      <LogoutButton />
     </aside>
+  );
+}
+
+function LogoutButton() {
+  const { logout, isLoading } = useAuthContext();
+  
+  const handleLogout = async () => {
+    await logout();
+  };
+
+  return (
+    <div className="p-4 border-t border-stone-100">
+      <button 
+        onClick={handleLogout}
+        disabled={isLoading}
+        className="flex items-center gap-4 w-full px-4 py-3 rounded-xl text-stone-500 hover:bg-red-50 hover:text-red-600 text-base transition-colors disabled:opacity-50"
+      >
+        {isLoading ? (
+          <Loader2 size={22} className="animate-spin" />
+        ) : (
+          <LogOut size={22} />
+        )}
+        <span>{isLoading ? 'Đang đăng xuất...' : 'Đăng xuất'}</span>
+      </button>
+    </div>
   );
 }
