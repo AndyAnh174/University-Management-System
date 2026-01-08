@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 export interface PaginatedResponse<T> {
@@ -40,6 +40,13 @@ export function useResource<T, TCreate, TUpdate, TFilter = Record<string, any>>(
   
   const [filters, setFilters] = useState<Partial<TFilter>>(defaultFilters);
 
+  const apiRef = useRef(api);
+  
+  // Update ref if api prop changes (though it should ideally be stable)
+  useEffect(() => {
+    apiRef.current = api;
+  }, [api]);
+
   // Fetch Logic
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -47,10 +54,11 @@ export function useResource<T, TCreate, TUpdate, TFilter = Record<string, any>>(
     try {
       const params = {
         page: pagination.pageIndex,
-        page_size: pagination.pageSize, // Assuming backend supports page_size
+        page_size: pagination.pageSize, 
         ...filters,
       };
-      const response = await api.list(params);
+      // Use ref to access latest api actions without triggering effect
+      const response = await apiRef.current.list(params);
       setData(response.results);
       setCount(response.count);
     } catch (err: any) {
@@ -63,7 +71,7 @@ export function useResource<T, TCreate, TUpdate, TFilter = Record<string, any>>(
     } finally {
       setIsLoading(false);
     }
-  }, [api, pagination, filters]);
+  }, [pagination, filters]); // api removed from dependency using ref pattern
 
   // Initial Fetch & Refetch on params change
   useEffect(() => {
@@ -134,6 +142,16 @@ export function useResource<T, TCreate, TUpdate, TFilter = Record<string, any>>(
       });
   };
 
+  const handleSetFilters = useCallback((newFilters: Partial<TFilter>) => {
+    setFilters((prev) => {
+      // Basic shallow comparison to avoid unnecessary updates if possible, 
+      // but typically we just merge. 
+      // Implementing a simple equality check might be safer but `...newFilters` implies change.
+      return { ...prev, ...newFilters };
+    });
+    setPagination(prev => ({ ...prev, pageIndex: 1 }));
+  }, []);
+
   return {
     // Data State
     data,
@@ -153,10 +171,7 @@ export function useResource<T, TCreate, TUpdate, TFilter = Record<string, any>>(
     setPagination,
     onPaginationChange: handlePageChange,
     filters,
-    setFilters: (newFilters: Partial<TFilter>) => {
-      setFilters(prev => ({ ...prev, ...newFilters }));
-      setPagination(prev => ({ ...prev, pageIndex: 1 })); // Reset page on filter
-    },
+    setFilters: handleSetFilters,
   };
 }
 
