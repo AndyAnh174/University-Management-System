@@ -1,2 +1,3 @@
 export { LoginForm } from './LoginForm';
-export { RegisterForm } from './RegisterForm';
+// RegisterForm is admin-only, will be used in admin panel
+// export { RegisterForm } from './RegisterForm';

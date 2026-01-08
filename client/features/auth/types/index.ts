@@ -1,32 +1,35 @@
 export interface LoginCredentials {
-  email: string;
+  username: string;
   password: string;
 }
 
 export interface RegisterData {
+  username: string;
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
-  role?: 'student' | 'teacher' | 'admin';
+  password_confirm: string;
+  first_name: string;
+  last_name: string;
+  role?: 'ADMIN' | 'TEACHER' | 'STUDENT';
 }
 
 export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
+  access: string;
+  refresh: string;
   user: User;
 }
 
 export interface User {
-  id: string;
+  id: number;
+  username: string;
   email: string;
-  firstName: string;
-  lastName: string;
-  role: 'admin' | 'teacher' | 'student';
+  first_name: string;
+  last_name: string;
+  role: 'ADMIN' | 'TEACHER' | 'STUDENT';
+  phone_number?: string;
   avatar?: string;
-  isActive?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  date_joined?: string;
+  last_login?: string;
 }
 
 export interface AuthState {
@@ -36,8 +39,8 @@ export interface AuthState {
   error: string | null;
 }
 
-export interface ResetPasswordData {
-  token: string;
-  newPassword: string;
-  confirmPassword: string;
+export interface ChangePasswordData {
+  old_password: string;
+  new_password: string;
+  new_password_confirm: string;
 }

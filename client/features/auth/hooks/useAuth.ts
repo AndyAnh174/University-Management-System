@@ -1,18 +1,19 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import * as authApi from '../api';
-import { setTokens, removeTokens, isAuthenticated as checkAuth } from '../utils';
-import type { User, AuthState } from '../types';
+import { setTokens, removeTokens, getRefreshToken, isAuthenticated as checkAuth } from '../utils';
+import type { User, AuthState, LoginCredentials } from '../types';
 
 interface UseAuthReturn extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: Parameters<typeof authApi.register>[0]) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
 export function useAuth(): UseAuthReturn {
+  const router = useRouter();
   const [state, setState] = useState<AuthState>({
     user: null,
     isLoading: true,
@@ -20,6 +21,7 @@ export function useAuth(): UseAuthReturn {
     error: null,
   });
 
+  // Initialize auth state on mount
   useEffect(() => {
     const initAuth = async () => {
       if (!checkAuth()) {
@@ -49,20 +51,29 @@ export function useAuth(): UseAuthReturn {
     initAuth();
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (credentials: LoginCredentials) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const response = await authApi.login({ email, password });
-      setTokens(response.accessToken, response.refreshToken);
+      const response = await authApi.login(credentials);
+      setTokens(response.access, response.refresh);
       setState({
         user: response.user,
         isLoading: false,
         isAuthenticated: true,
         error: null,
       });
+      
+      // Redirect to dashboard after successful login
+      router.push('/dashboard');
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Login failed';
+      let message = 'Đăng nhập thất bại';
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { detail?: string } } };
+        message = axiosError.response?.data?.detail || message;
+      }
+      
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -70,34 +81,14 @@ export function useAuth(): UseAuthReturn {
       }));
       throw error;
     }
-  }, []);
-
-  const register = useCallback(async (data: Parameters<typeof authApi.register>[0]) => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
-
-    try {
-      const response = await authApi.register(data);
-      setTokens(response.accessToken, response.refreshToken);
-      setState({
-        user: response.user,
-        isLoading: false,
-        isAuthenticated: true,
-        error: null,
-      });
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Registration failed';
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: message,
-      }));
-      throw error;
-    }
-  }, []);
+  }, [router]);
 
   const logout = useCallback(async () => {
     try {
-      await authApi.logout();
+      const refreshToken = getRefreshToken();
+      if (refreshToken) {
+        await authApi.logout(refreshToken);
+      }
     } catch {
       // Ignore logout errors
     } finally {
@@ -108,8 +99,9 @@ export function useAuth(): UseAuthReturn {
         isAuthenticated: false,
         error: null,
       });
+      router.push('/login');
     }
-  }, []);
+  }, [router]);
 
   const refreshUser = useCallback(async () => {
     if (!checkAuth()) return;
@@ -125,7 +117,6 @@ export function useAuth(): UseAuthReturn {
   return {
     ...state,
     login,
-    register,
     logout,
     refreshUser,
   };

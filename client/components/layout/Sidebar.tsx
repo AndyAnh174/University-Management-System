@@ -55,7 +55,7 @@ export function Sidebar({ userRole = 'admin' }: SidebarProps) {
           <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
             <span className="text-amber-700 font-bold text-lg">S</span>
           </div>
-          <span className="font-semibold text-stone-800 text-lg">STM System</span>
+          <span className="font-semibold text-stone-800 text-lg">Student Teacher Management System</span>
         </div>
       </div>
 
