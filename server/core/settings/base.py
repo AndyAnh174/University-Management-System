@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     
     # Local Apps
     "users",
+    "academics",
 ]
 
 # ... (Middleware content skipped in replacement for brevity, locating strictly by content match)
